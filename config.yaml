@@ -1,0 +1,15 @@
+#--------------------------------------socket-------------------------------------------
+server :  
+  #server port
+  port : &p  9000
+  # check client is alive (10 minutes)
+  timeout : 600
+
+client : 
+  #server ip
+  serverip : '127.0.0.1'
+  #server port
+  serverport : *p
+
+#----------------------------------------gui-------------------------------------------
+gui :
