@@ -1,16 +1,19 @@
-package mzgochat
+package gochat
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strconv"
 	"time"
 )
 
 var (
-	nickname string //昵称
-	inputStr string //用户输入的聊天内容
-	data     CSData //传输的数据
+	nickname string   //昵称
+	inputStr string   //用户输入的聊天内容
+	data     MesgData //传输的数据
 )
 
 //设置昵称
@@ -24,15 +27,15 @@ func Client() {
 
 	setNickName()
 
-	conn, err := net.Dial("tcp", ":9000")
+	conn, err := net.Dial(CONFIG_SERVER_PROTOCOL, CONFIG_SERVER_IP+CONFIG_SERVER_PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
 	//defer conn.Close()
 	//客户端发送数据到服务端
 	go inputToServer(conn)
-	go receiveFromSever(conn)
-	time.Sleep(1 * time.Hour)
+	receiveFromSever(conn)
+	//time.Sleep(1 * time.Hour)
 }
 
 func inputToServer(conn net.Conn) {
@@ -44,11 +47,15 @@ func inputToServer(conn net.Conn) {
 			continue
 		}
 
-		data = CSData{
-			NickName: nickname,
-			Info:     inputStr,
+		curTime := time.Now().Unix()
+
+		data = MesgData{
+			Uid:      nickname + strconv.FormatInt(curTime, 10),
+			Nickname: nickname,
+			Text:     inputStr,
 			InfoType: MessageInfoType,
 			Platform: ClientPlatform,
+			CurTime:  curTime,
 		}
 
 		conn.Write(data.ToJson())
@@ -56,14 +63,25 @@ func inputToServer(conn net.Conn) {
 }
 
 func receiveFromSever(conn net.Conn) {
-
+	var d MesgData
 	var clientInput = make([]byte, 2048)
 	for {
-		_, err := conn.Read(clientInput)
+		num, err := conn.Read(clientInput)
 		if err != nil {
 			log.Print(err)
+			//客户端连接断开
+			if err == io.EOF {
+				closeConnect(conn)
+				break
+			}
+			continue
 		}
-		fmt.Printf("Server已经收到你发的消息 : %s\n", string(clientInput))
+		if json.Unmarshal(clientInput[:num], &d) != nil {
+			log.Print(err)
+		} else {
+			fmt.Printf("\n[%s : %s]\n", d.Nickname, d.Text)
+		}
+
 	}
 
 }
